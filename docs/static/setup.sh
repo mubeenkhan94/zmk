@@ -22,6 +22,13 @@ check_exists "command -v curl" "curl is not installed, and is required for this 
 check_exists "git config user.name" "Git username not set!\nRun: git config --global user.name 'My Name'"
 check_exists "git config user.email" "Git email not set!\nRun: git config --global user.email 'example@myemail.com'"
 
+# Check to see if the user has write permissions in this directory to prevent a cryptic error later on
+if [ ! -w `pwd` ]; then
+    echo 'Sorry, you do not have write permissions in this directory.';
+    echo 'Please try running this script again from a directory that you do have write permissions for.';
+    exit 1
+fi
+
 repo_path="https://github.com/zmkfirmware/zmk-config-split-template.git"
 title="ZMK Config Setup:"
 
@@ -51,7 +58,7 @@ echo ""
 echo "Keyboard Shield Selection:"
 
 prompt="Pick an keyboard:"
-options=("Kyria" "Lily58" "Corne" "Splitreus62" "Sofle" "Iris" "RoMac" "makerdiary M60")
+options=("Kyria" "Lily58" "Corne" "Splitreus62" "Sofle" "Iris" "RoMac" "makerdiary M60" "Microdox")
 
 PS3="$prompt "
 # TODO: Add support for "Other" and linking to docs on adding custom shields in user config repos.
@@ -67,7 +74,8 @@ select opt in "${options[@]}" "Quit"; do
     5 ) shield_title="Sofle" shield="sofle"; split="y"; break;;
     6 ) shield_title="Iris" shield="iris"; split="y"; break;;
     7 ) shield_title="RoMac" shield="romac"; split="n"; break;;
-    7 ) shield_title="M60" shield="m60"; split="n"; break;;
+    8 ) shield_title="M60" shield="m60"; split="n"; break;;
+    9 ) shield_title="Microdox" shield="microdox"; split="y"; break;;
 
     # Add link to docs on adding your own custom shield in your ZMK config!
     # $(( ${#options[@]}+1 )) ) echo "Other!"; break;;
