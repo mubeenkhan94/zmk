@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # Copyright (c) 2020 The ZMK Contributors
-#
 # SPDX-License-Identifier: MIT
 
 set -e
@@ -9,15 +8,25 @@ set -e
 check_exists() {
     command_to_run=$1
     error_message=$2
+    local __resultvar=$3
 
     if ! eval "$command_to_run" &> /dev/null; then
-        printf "%s\n" "$error_message"
-        exit 1
+        if [[ "$__resultvar" != "" ]]; then
+            eval $__resultvar="'false'"
+        else
+            printf "%s\n" "$error_message"
+            exit 1
+        fi
+    else
+        if [[ "$__resultvar" != "" ]]; then
+            eval $__resultvar="'true'"
+        fi
     fi
 }
 
 check_exists "command -v git" "git is not installed, and is required for this script!"
-check_exists "command -v curl" "curl is not installed, and is required for this script!"
+check_exists "command -v curl" "curl is not installed, and is required for this script!" curl_exists
+check_exists "command -v wget" "wget is not installed, and is required for this script!" wget_exists
 
 check_exists "git config user.name" "Git username not set!\nRun: git config --global user.name 'My Name'"
 check_exists "git config user.email" "Git email not set!\nRun: git config --global user.email 'example@myemail.com'"
@@ -26,6 +35,30 @@ check_exists "git config user.email" "Git email not set!\nRun: git config --glob
 if [ ! -w `pwd` ]; then
     echo 'Sorry, you do not have write permissions in this directory.';
     echo 'Please try running this script again from a directory that you do have write permissions for.';
+    exit 1
+fi
+
+# Parse all commandline options
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -w|--wget) force_wget="true"; break;;
+        *) echo "Unknown parameter: $1"; exit 1;;
+    esac
+    shift
+done
+
+if [[ $curl_exists == "true" && $wget_exists == "true" ]]; then
+    if [[ $force_wget == "true" ]]; then
+        download_command="wget "
+    else
+        download_command="curl -O "
+    fi
+elif [[ $curl_exists == "true" ]]; then
+    download_command="curl -O "
+elif [[ $wget_exists == "true" ]]; then
+    download_command="wget "
+else
+    echo 'Neither curl nor wget are installed. One of the two is required for this script!'
     exit 1
 fi
 
@@ -46,7 +79,7 @@ select opt in "${options[@]}" "Quit"; do
     1 ) board="nice_nano"; break;;
     2 ) board="proton_c"; break;;
     3 ) board="bluemicro840_v1"; break;;
-    3 ) board="nrf52840_m2"; break;;
+    4 ) board="nrf52840_m2"; break;;
 
     $(( ${#options[@]}+1 )) ) echo "Goodbye!"; exit 1;;
     *) echo "Invalid option. Try another one."; continue;;
@@ -58,7 +91,7 @@ echo ""
 echo "Keyboard Shield Selection:"
 
 prompt="Pick an keyboard:"
-options=("Kyria" "Lily58" "Corne" "Splitreus62" "Sofle" "Iris" "RoMac" "makerdiary M60" "Microdox")
+options=("Kyria" "Lily58" "Corne" "Splitreus62" "Sofle" "Iris" "Reviung41" "RoMac" "RoMac+" "makerdiary M60" "Microdox" "TG4X" "QAZ" "NIBBLE" "Jorne" "Jian" "CRBN" "Tidbit" "Eek!" "BFO-9000" "Helix")
 
 PS3="$prompt "
 # TODO: Add support for "Other" and linking to docs on adding custom shields in user config repos.
@@ -73,9 +106,21 @@ select opt in "${options[@]}" "Quit"; do
     4 ) shield_title="Splitreus62" shield="splitreus62"; split="y"; break;;
     5 ) shield_title="Sofle" shield="sofle"; split="y"; break;;
     6 ) shield_title="Iris" shield="iris"; split="y"; break;;
-    7 ) shield_title="RoMac" shield="romac"; split="n"; break;;
-    8 ) shield_title="M60" shield="m60"; split="n"; break;;
-    9 ) shield_title="Microdox" shield="microdox"; split="y"; break;;
+    7 ) shield_title="Reviung41" shield="reviung41"; split="n"; break;;
+    8 ) shield_title="RoMac" shield="romac"; split="n"; break;;
+    9 ) shield_title="RoMac+" shield="romac_plus"; split="n"; break;;
+    10 ) shield_title="M60" shield="m60"; split="n"; break;;
+    11 ) shield_title="Microdox" shield="microdox"; split="y"; break;;
+    12 ) shield_title="TG4X" shield="tg4x"; split="n"; break;;
+    13 ) shield_title="QAZ" shield="qaz"; split="n"; break;;
+    14 ) shield_title="NIBBLE" shield="nibble"; split="n"; break;;
+    15 ) shield_title="Jorne" shield="jorne"; split="y"; break;;
+    16 ) shield_title="Jian" shield="jian"; split="y"; break;;
+    17 ) shield_title="CRBN" shield="crbn"; split="n"; break;;
+    18 ) shield_title="Tidbit" shield="tidbit"; split="n" break;;
+    19 ) shield_title="Eek!" shield="eek"; split="n" break;;
+    20 ) shield_title="BFO-9000" shield="bfo9000"; split="y"; break;;
+    21 ) shield_title="Helix" shield="helix"; split="y"; break;;
 
     # Add link to docs on adding your own custom shield in your ZMK config!
     # $(( ${#options[@]}+1 )) ) echo "Other!"; break;;
@@ -133,10 +178,10 @@ cd ${repo_name}
 
 pushd config
 
-curl -O "https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/boards/shields/${shield}/${shield}.conf"
+$download_command "https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/boards/shields/${shield}/${shield}.conf"
 
 if [ "$copy_keymap" == "yes" ]; then
-    curl -O "https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/boards/shields/${shield}/${shield}.keymap"
+    $download_command "https://raw.githubusercontent.com/zmkfirmware/zmk/main/app/boards/shields/${shield}/${shield}.keymap"
 fi
 
 popd

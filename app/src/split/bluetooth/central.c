@@ -19,8 +19,8 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/ble.h>
 #include <zmk/split/bluetooth/uuid.h>
-#include <zmk/event-manager.h>
-#include <zmk/events/position-state-changed.h>
+#include <zmk/event_manager.h>
+#include <zmk/events/position_state_changed.h>
 #include <init.h>
 
 static int start_scan(void);
@@ -33,11 +33,25 @@ static struct bt_uuid_128 uuid = BT_UUID_INIT_128(ZMK_SPLIT_BT_SERVICE_UUID);
 static struct bt_gatt_discover_params discover_params;
 static struct bt_gatt_subscribe_params subscribe_params;
 
-static u8_t split_central_notify_func(struct bt_conn *conn, struct bt_gatt_subscribe_params *params,
-                                      const void *data, u16_t length) {
-    static u8_t position_state[POSITION_STATE_DATA_LEN];
+K_MSGQ_DEFINE(peripheral_event_msgq, sizeof(struct zmk_position_state_changed),
+              CONFIG_ZMK_SPLIT_BLE_CENTRAL_POSITION_QUEUE_SIZE, 4);
 
-    u8_t changed_positions[POSITION_STATE_DATA_LEN];
+void peripheral_event_work_callback(struct k_work *work) {
+    struct zmk_position_state_changed ev;
+    while (k_msgq_get(&peripheral_event_msgq, &ev, K_NO_WAIT) == 0) {
+        LOG_DBG("Trigger key position state change for %d", ev.position);
+        ZMK_EVENT_RAISE(new_zmk_position_state_changed(ev));
+    }
+}
+
+K_WORK_DEFINE(peripheral_event_work, peripheral_event_work_callback);
+
+static uint8_t split_central_notify_func(struct bt_conn *conn,
+                                         struct bt_gatt_subscribe_params *params, const void *data,
+                                         uint16_t length) {
+    static uint8_t position_state[POSITION_STATE_DATA_LEN];
+
+    uint8_t changed_positions[POSITION_STATE_DATA_LEN];
 
     if (!data) {
         LOG_DBG("[UNSUBSCRIBED]");
@@ -48,22 +62,20 @@ static u8_t split_central_notify_func(struct bt_conn *conn, struct bt_gatt_subsc
     LOG_DBG("[NOTIFICATION] data %p length %u", data, length);
 
     for (int i = 0; i < POSITION_STATE_DATA_LEN; i++) {
-        changed_positions[i] = ((u8_t *)data)[i] ^ position_state[i];
-        position_state[i] = ((u8_t *)data)[i];
+        changed_positions[i] = ((uint8_t *)data)[i] ^ position_state[i];
+        position_state[i] = ((uint8_t *)data)[i];
     }
 
     for (int i = 0; i < POSITION_STATE_DATA_LEN; i++) {
         for (int j = 0; j < 8; j++) {
             if (changed_positions[i] & BIT(j)) {
-                u32_t position = (i * 8) + j;
+                uint32_t position = (i * 8) + j;
                 bool pressed = position_state[i] & BIT(j);
-                struct position_state_changed *pos_ev = new_position_state_changed();
-                pos_ev->position = position;
-                pos_ev->state = pressed;
-                pos_ev->timestamp = k_uptime_get();
+                struct zmk_position_state_changed ev = {
+                    .position = position, .state = pressed, .timestamp = k_uptime_get()};
 
-                LOG_DBG("Trigger key position state change for %d", position);
-                ZMK_EVENT_RAISE(pos_ev);
+                k_msgq_put(&peripheral_event_msgq, &ev, K_NO_WAIT);
+                k_work_submit(&peripheral_event_work);
             }
         }
     }
@@ -91,8 +103,8 @@ static int split_central_subscribe(struct bt_conn *conn) {
     return 0;
 }
 
-static u8_t split_central_discovery_func(struct bt_conn *conn, const struct bt_gatt_attr *attr,
-                                         struct bt_gatt_discover_params *params) {
+static uint8_t split_central_discovery_func(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+                                            struct bt_gatt_discover_params *params) {
     int err;
 
     if (!attr) {
@@ -187,19 +199,19 @@ static bool split_central_eir_found(struct bt_data *data, void *user_data) {
 
         for (i = 0; i < data->data_len; i += 16) {
             struct bt_le_conn_param *param;
-            struct bt_uuid uuid;
+            struct bt_uuid_128 uuid;
             int err;
 
-            if (!bt_uuid_create(&uuid, &data->data[i], 16)) {
+            if (!bt_uuid_create(&uuid.uuid, &data->data[i], 16)) {
                 LOG_ERR("Unable to load UUID");
                 continue;
             }
 
-            if (!bt_uuid_cmp(&uuid, BT_UUID_DECLARE_128(ZMK_SPLIT_BT_SERVICE_UUID))) {
+            if (bt_uuid_cmp(&uuid.uuid, BT_UUID_DECLARE_128(ZMK_SPLIT_BT_SERVICE_UUID))) {
                 char uuid_str[BT_UUID_STR_LEN];
                 char service_uuid_str[BT_UUID_STR_LEN];
 
-                bt_uuid_to_str(&uuid, uuid_str, sizeof(uuid_str));
+                bt_uuid_to_str(&uuid.uuid, uuid_str, sizeof(uuid_str));
                 bt_uuid_to_str(BT_UUID_DECLARE_128(ZMK_SPLIT_BT_SERVICE_UUID), service_uuid_str,
                                sizeof(service_uuid_str));
                 LOG_DBG("UUID %s does not match split UUID: %s", log_strdup(uuid_str),
@@ -245,7 +257,7 @@ static bool split_central_eir_found(struct bt_data *data, void *user_data) {
     return true;
 }
 
-static void split_central_device_found(const bt_addr_le_t *addr, s8_t rssi, u8_t type,
+static void split_central_device_found(const bt_addr_le_t *addr, int8_t rssi, uint8_t type,
                                        struct net_buf_simple *ad) {
     char dev[BT_ADDR_LE_STR_LEN];
 
@@ -272,7 +284,7 @@ static int start_scan(void) {
     return 0;
 }
 
-static void split_central_connected(struct bt_conn *conn, u8_t conn_err) {
+static void split_central_connected(struct bt_conn *conn, uint8_t conn_err) {
     char addr[BT_ADDR_LE_STR_LEN];
 
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
@@ -292,7 +304,7 @@ static void split_central_connected(struct bt_conn *conn, u8_t conn_err) {
     split_central_process_connection(conn);
 }
 
-static void split_central_disconnected(struct bt_conn *conn, u8_t reason) {
+static void split_central_disconnected(struct bt_conn *conn, uint8_t reason) {
     char addr[BT_ADDR_LE_STR_LEN];
 
     bt_addr_le_to_str(bt_conn_get_dst(conn), addr, sizeof(addr));
@@ -314,7 +326,7 @@ static struct bt_conn_cb conn_callbacks = {
     .disconnected = split_central_disconnected,
 };
 
-int zmk_split_bt_central_init(struct device *_arg) {
+int zmk_split_bt_central_init(const struct device *_arg) {
     bt_conn_cb_register(&conn_callbacks);
 
     return start_scan();

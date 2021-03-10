@@ -4,6 +4,9 @@ if SHIELD_KYRIA_LEFT
 config ZMK_KEYBOARD_NAME
 	default "Kyria Left"
 
+config ZMK_SPLIT_BLE_ROLE_CENTRAL
+	default y
+
 endif
 
 
@@ -34,10 +37,10 @@ endif # ZMK_DISPLAY
 
 if LVGL
 
-config LVGL_HOR_RES
+config LVGL_HOR_RES_MAX
 	default 128
 
-config LVGL_VER_RES
+config LVGL_VER_RES_MAX
 	default 64
 
 config LVGL_VDB_SIZE

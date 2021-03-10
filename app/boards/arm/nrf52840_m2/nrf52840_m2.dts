@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020 The ZMK Contributors
+ *
  * SPDX-License-Identifier: MIT
  */
 
@@ -12,9 +13,6 @@
 
 	chosen {
 		zephyr,code-partition = &code_partition;
-		//zephyr,console = &uart0;
-		//zephyr,bt-mon-uart = &uart0;
-		//zephyr,bt-c2h-uart = &uart0;
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 	};
@@ -37,22 +35,20 @@
 
 };
 
+&adc {
+	status = "okay";
+};
+
+&gpiote {
+	status = "okay";
+};
+
 &gpio0 {
 	status = "okay";
 };
 
 &gpio1 {
 	status = "okay";
-};
-
-&uart0 {
-	compatible = "nordic,nrf-uart";
-	status = "okay";
-	current-speed = <115200>;
-	tx-pin = <16>;
-	rx-pin = <15>;
-	rts-pin = <14>;
-	cts-pin = <13>;
 };
 
 &usbd {
@@ -71,27 +67,32 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		boot_partition: partition@0 {
-			label = "adafruit_boot";
-			reg = <0x000000000 0x0000C000>;
+		sd_partition: partition@0 {
+			label = "softdevice";
+			reg = <0x00000000 0x00026000>;
 		};
 		code_partition: partition@26000 {
 			label = "code_partition";
-			reg = <0x00026000 0x000d2000>;
+			reg = <0x00026000 0x000c6000>;
 		};
 
 		/*
-		 * The flash starting at 0x000f8000 and ending at
-		 * 0x000fffff is reserved for use by the application.
+		 * The flash starting at 0x000ec000 and ending at
+		 * 0x000f3fff is reserved for use by the application.
 		 */
 
 		/*
 		 * Storage partition will be used by FCB/LittleFS/NVS
 		 * if enabled.
 		 */
-		storage_partition: partition@f8000 {
+		storage_partition: partition@ec000 {
 			label = "storage";
-			reg = <0x000f8000 0x00008000>;
+			reg = <0x000ec000 0x00008000>;
+		};
+
+		boot_partition: partition@f4000 {
+			label = "adafruit_boot";
+			reg = <0x000f4000 0x0000c000>;
 		};
 	};
 };

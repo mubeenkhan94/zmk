@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <dt-bindings/zmk/matrix-transform.h>
+#include <dt-bindings/zmk/matrix_transform.h>
 
 / {
 	chosen {
@@ -30,11 +30,5 @@
 			;
 
 	};
-
-	bt_unpair_combo: bt_unpair_combo {
-		compatible = "zmk,bt-unpair-combo";
-		key-positions = <0 11>;
-	};
-
 };
 

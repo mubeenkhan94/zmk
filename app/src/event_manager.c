@@ -9,7 +9,7 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-#include <zmk/event-manager.h>
+#include <zmk/event_manager.h>
 
 extern struct zmk_event_type *__event_type_start[];
 extern struct zmk_event_type *__event_type_end[];
@@ -17,9 +17,9 @@ extern struct zmk_event_type *__event_type_end[];
 extern struct zmk_event_subscription __event_subscriptions_start[];
 extern struct zmk_event_subscription __event_subscriptions_end[];
 
-int zmk_event_manager_handle_from(struct zmk_event_header *event, u8_t start_index) {
+int zmk_event_manager_handle_from(zmk_event_t *event, uint8_t start_index) {
     int ret = 0;
-    u8_t len = __event_subscriptions_end - __event_subscriptions_start;
+    uint8_t len = __event_subscriptions_end - __event_subscriptions_start;
     for (int i = start_index; i < len; i++) {
         struct zmk_event_subscription *ev_sub = __event_subscriptions_start + i;
         if (ev_sub->event_type == event->event) {
@@ -48,13 +48,10 @@ release:
     return ret;
 }
 
-int zmk_event_manager_raise(struct zmk_event_header *event) {
-    return zmk_event_manager_handle_from(event, 0);
-}
+int zmk_event_manager_raise(zmk_event_t *event) { return zmk_event_manager_handle_from(event, 0); }
 
-int zmk_event_manager_raise_after(struct zmk_event_header *event,
-                                  const struct zmk_listener *listener) {
-    u8_t len = __event_subscriptions_end - __event_subscriptions_start;
+int zmk_event_manager_raise_after(zmk_event_t *event, const struct zmk_listener *listener) {
+    uint8_t len = __event_subscriptions_end - __event_subscriptions_start;
     for (int i = 0; i < len; i++) {
         struct zmk_event_subscription *ev_sub = __event_subscriptions_start + i;
 
@@ -68,9 +65,8 @@ int zmk_event_manager_raise_after(struct zmk_event_header *event,
     return -EINVAL;
 }
 
-int zmk_event_manager_raise_at(struct zmk_event_header *event,
-                               const struct zmk_listener *listener) {
-    u8_t len = __event_subscriptions_end - __event_subscriptions_start;
+int zmk_event_manager_raise_at(zmk_event_t *event, const struct zmk_listener *listener) {
+    uint8_t len = __event_subscriptions_end - __event_subscriptions_start;
     for (int i = 0; i < len; i++) {
         struct zmk_event_subscription *ev_sub = __event_subscriptions_start + i;
 
@@ -84,6 +80,6 @@ int zmk_event_manager_raise_at(struct zmk_event_header *event,
     return -EINVAL;
 }
 
-int zmk_event_manager_release(struct zmk_event_header *event) {
+int zmk_event_manager_release(zmk_event_t *event) {
     return zmk_event_manager_handle_from(event, event->last_listener_index + 1);
 }

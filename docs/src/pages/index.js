@@ -5,6 +5,7 @@ import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import styles from "./styles.module.css";
+import PropTypes from "prop-types";
 
 const features = [
   {
@@ -12,7 +13,8 @@ const features = [
     imageUrl: "img/undraw_zephyr.svg",
     description: (
       <>
-        With a wide range of architecture support, ZMK is ready for many existing keyboards.
+        With a wide range of architecture support, ZMK is ready for many
+        existing keyboards.
       </>
     ),
   },
@@ -20,19 +22,13 @@ const features = [
     title: <>Permissive Licensing</>,
     imageUrl: "img/undraw_open_source.svg",
     description: (
-      <>
-        MIT licensed to remove any future limitations in innovation.
-      </>
+      <>MIT licensed to remove any future limitations in innovation.</>
     ),
   },
   {
     title: <>Wireless First</>,
     imageUrl: "img/undraw_wireless.svg",
-    description: (
-      <>
-        Designed for the future, including wireless support.
-      </>
-    ),
+    description: <>Designed for the future, including wireless support.</>,
   },
 ];
 
@@ -51,13 +47,19 @@ function Feature({ imageUrl, title, description }) {
   );
 }
 
+Feature.propTypes = {
+  imageUrl: PropTypes.string.isRequired,
+  title: PropTypes.string.isRequired,
+  description: PropTypes.string.isRequired,
+};
+
 function Home() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
   return (
     <Layout
       title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />"
+      description="Modern, open source keyboard firmware."
     >
       <header className={classnames("hero hero--primary", styles.heroBanner)}>
         <div className="container">

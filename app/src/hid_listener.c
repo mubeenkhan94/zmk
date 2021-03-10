@@ -9,92 +9,78 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-#include <zmk/event-manager.h>
-#include <zmk/events/keycode-state-changed.h>
-#include <zmk/events/modifiers-state-changed.h>
+#include <zmk/event_manager.h>
+#include <zmk/events/keycode_state_changed.h>
+#include <zmk/events/modifiers_state_changed.h>
 #include <zmk/hid.h>
+#include <dt-bindings/zmk/hid_usage_pages.h>
 #include <zmk/endpoints.h>
 
-static int hid_listener_keycode_pressed(u8_t usage_page, u32_t keycode) {
+static int hid_listener_keycode_pressed(const struct zmk_keycode_state_changed *ev) {
     int err;
-    LOG_DBG("usage_page 0x%02X keycode 0x%02X", usage_page, keycode);
-
-    switch (usage_page) {
-    case USAGE_KEYPAD:
-        err = zmk_hid_keypad_press(keycode);
+    LOG_DBG("usage_page 0x%02X keycode 0x%02X implicit_mods 0x%02X explicit_mods 0x%02X",
+            ev->usage_page, ev->keycode, ev->implicit_modifiers, ev->explicit_modifiers);
+    switch (ev->usage_page) {
+    case HID_USAGE_KEY:
+        err = zmk_hid_keyboard_press(ev->keycode);
         if (err) {
             LOG_ERR("Unable to press keycode");
             return err;
         }
         break;
-    case USAGE_CONSUMER:
-        err = zmk_hid_consumer_press(keycode);
+    case HID_USAGE_CONSUMER:
+        err = zmk_hid_consumer_press(ev->keycode);
         if (err) {
             LOG_ERR("Unable to press keycode");
             return err;
         }
         break;
     }
-
-    return zmk_endpoints_send_report(usage_page);
+    zmk_hid_register_mods(ev->explicit_modifiers);
+    zmk_hid_implicit_modifiers_press(ev->implicit_modifiers);
+    return zmk_endpoints_send_report(ev->usage_page);
 }
 
-static int hid_listener_keycode_released(u8_t usage_page, u32_t keycode) {
+static int hid_listener_keycode_released(const struct zmk_keycode_state_changed *ev) {
     int err;
-    LOG_DBG("usage_page 0x%02X keycode 0x%02X", usage_page, keycode);
-
-    switch (usage_page) {
-    case USAGE_KEYPAD:
-        err = zmk_hid_keypad_release(keycode);
+    LOG_DBG("usage_page 0x%02X keycode 0x%02X implicit_mods 0x%02X explicit_mods 0x%02X",
+            ev->usage_page, ev->keycode, ev->implicit_modifiers, ev->explicit_modifiers);
+    switch (ev->usage_page) {
+    case HID_USAGE_KEY:
+        err = zmk_hid_keyboard_release(ev->keycode);
         if (err) {
             LOG_ERR("Unable to release keycode");
             return err;
         }
         break;
-    case USAGE_CONSUMER:
-        err = zmk_hid_consumer_release(keycode);
+    case HID_USAGE_CONSUMER:
+        err = zmk_hid_consumer_release(ev->keycode);
         if (err) {
             LOG_ERR("Unable to release keycode");
             return err;
         }
-        break;
     }
-    return zmk_endpoints_send_report(usage_page);
+    zmk_hid_unregister_mods(ev->explicit_modifiers);
+    // There is a minor issue with this code.
+    // If LC(A) is pressed, then LS(B), then LC(A) is released, the shift for B will be released
+    // prematurely. This causes if LS(B) to repeat like Bbbbbbbb when pressed for a long time.
+    // Solving this would require keeping track of which key's implicit modifiers are currently
+    // active and only releasing modifiers at that time.
+    zmk_hid_implicit_modifiers_release();
+    return zmk_endpoints_send_report(ev->usage_page);
 }
 
-static int hid_listener_modifiers_pressed(zmk_mod_flags modifiers) {
-    LOG_DBG("modifiers %d", modifiers);
-
-    zmk_hid_register_mods(modifiers);
-    return zmk_endpoints_send_report(USAGE_KEYPAD);
-}
-
-static int hid_listener_modifiers_released(zmk_mod_flags modifiers) {
-    LOG_DBG("modifiers %d", modifiers);
-
-    zmk_hid_unregister_mods(modifiers);
-    return zmk_endpoints_send_report(USAGE_KEYPAD);
-}
-
-int hid_listener(const struct zmk_event_header *eh) {
-    if (is_keycode_state_changed(eh)) {
-        const struct keycode_state_changed *ev = cast_keycode_state_changed(eh);
+int hid_listener(const zmk_event_t *eh) {
+    const struct zmk_keycode_state_changed *ev = as_zmk_keycode_state_changed(eh);
+    if (ev) {
         if (ev->state) {
-            hid_listener_keycode_pressed(ev->usage_page, ev->keycode);
+            hid_listener_keycode_pressed(ev);
         } else {
-            hid_listener_keycode_released(ev->usage_page, ev->keycode);
-        }
-    } else if (is_modifiers_state_changed(eh)) {
-        const struct modifiers_state_changed *ev = cast_modifiers_state_changed(eh);
-        if (ev->state) {
-            hid_listener_modifiers_pressed(ev->modifiers);
-        } else {
-            hid_listener_modifiers_released(ev->modifiers);
+            hid_listener_keycode_released(ev);
         }
     }
     return 0;
 }
 
 ZMK_LISTENER(hid_listener, hid_listener);
-ZMK_SUBSCRIPTION(hid_listener, keycode_state_changed);
-ZMK_SUBSCRIPTION(hid_listener, modifiers_state_changed);
+ZMK_SUBSCRIPTION(hid_listener, zmk_keycode_state_changed);

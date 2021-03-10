@@ -5,15 +5,23 @@ if SHIELD_SOFLE_LEFT
 
 config ZMK_KEYBOARD_NAME
 	default "Sofle Left"
+
+config ZMK_SPLIT_BLE_ROLE_CENTRAL
+	default y
+	
 endif
 
 if SHIELD_SOFLE_RIGHT
 
 config ZMK_KEYBOARD_NAME
 	default "Sofle Right"
+
 endif
 
 if SHIELD_SOFLE_LEFT || SHIELD_SOFLE_RIGHT
+
+config ZMK_SPLIT
+	default y
 
 if ZMK_DISPLAY
 
@@ -30,10 +38,10 @@ endif # ZMK_DISPLAY
 
 if LVGL
 
-config LVGL_HOR_RES
+config LVGL_HOR_RES_MAX
 	default 128
 
-config LVGL_VER_RES
+config LVGL_VER_RES_MAX
 	default 32
 
 config LVGL_VDB_SIZE

@@ -1,6 +1,6 @@
 #include <dt-bindings/zmk/keys.h>
 #include <behaviors.dtsi>
-#include <dt-bindings/zmk/kscan-mock.h>
+#include <dt-bindings/zmk/kscan_mock.h>
 
 / {
 	keymap {
@@ -15,7 +15,7 @@
 
 		lower_layer {
 			bindings = <
-				&cp M_NEXT &trans
+				&kp C_NEXT &trans
 				&kp L  &kp J>;
 		};
 
